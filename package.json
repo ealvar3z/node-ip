@@ -1,11 +1,11 @@
 {
   "name": "ip",
-  "version": "2.0.1",
-  "author": "Fedor Indutny <fedor@indutny.com>",
-  "homepage": "https://github.com/indutny/node-ip",
+  "version": "3.0.0",
+  "author": "ealvar3z",
+  "homepage": "https://github.com/ealvar3z/node-ip",
   "repository": {
     "type": "git",
-    "url": "http://github.com/indutny/node-ip.git"
+    "url": "https://github.com/ealvar3z/node-ip.git"
   },
   "files": [
     "lib",
@@ -13,12 +13,12 @@
   ],
   "main": "lib/ip",
   "devDependencies": {
-    "eslint": "^8.15.0",
-    "mocha": "^10.0.0"
+    "@eslint/js": "^10.0.1",
+    "eslint": "^10.1.0"
   },
   "scripts": {
     "lint": "eslint lib/*.js test/*.js",
-    "test": "npm run lint && mocha --reporter spec test/*-test.js",
+    "test": "npm run lint && node --test test/*-test.js",
     "fix": "npm run lint -- --fix"
   },
   "license": "MIT"

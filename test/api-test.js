@@ -1,6 +1,6 @@
-/* global describe, it */
 const assert = require('assert');
 const { Buffer } = require('buffer');
+const { describe, it } = require('node:test');
 const net = require('net');
 const os = require('os');
 const ip = require('..');
@@ -14,7 +14,7 @@ describe('IP library for node.js', () => {
     });
 
     it('should convert to buffer IPv4 address in-place', () => {
-      const buf = new Buffer(128);
+      const buf = Buffer.alloc(128);
       const offset = 64;
       ip.toBuffer('127.0.0.1', buf, offset);
       assert.equal(buf.toString('hex', offset, offset + 4), '7f000001');
@@ -30,7 +30,7 @@ describe('IP library for node.js', () => {
     });
 
     it('should convert to buffer IPv6 address in-place', () => {
-      const buf = new Buffer(128);
+      const buf = Buffer.alloc(128);
       const offset = 64;
       ip.toBuffer('::1', buf, offset);
       assert(/(00){15,15}01/.test(buf.toString('hex', offset, offset + 16)));
@@ -505,5 +505,88 @@ describe('IP library for node.js', () => {
   // IPv4 non-loopback address
   it('should return false for "192.168.1.1"', () => {
     assert.equal(ip.isLoopback('192.168.1.1'), false);
+  });
+
+  describe('SSRF bypass prevention', () => {
+    it('treats "0" as private and loopback', () => {
+      assert.equal(ip.isPrivate('0'), true);
+      assert.equal(ip.isPublic('0'), false);
+      assert.equal(ip.isLoopback('0'), true);
+    });
+
+    it('treats "0.0.0.0" as private', () => {
+      assert.equal(ip.isPrivate('0.0.0.0'), true);
+      assert.equal(ip.isPublic('0.0.0.0'), false);
+    });
+
+    it('treats 32-bit octal and hex loopback as private', () => {
+      assert.equal(ip.isPrivate('017700000001'), true);
+      assert.equal(ip.isPublic('017700000001'), false);
+      assert.equal(ip.isLoopback('017700000001'), true);
+      assert.equal(ip.isPrivate('0x7f000001'), true);
+      assert.equal(ip.isPublic('0x7f000001'), false);
+      assert.equal(ip.isLoopback('0x7f000001'), true);
+    });
+
+    it('treats shorthand IPv4 loopback as private', () => {
+      assert.equal(ip.isPrivate('127.1'), true);
+      assert.equal(ip.isPublic('127.1'), false);
+      assert.equal(ip.isLoopback('127.1'), true);
+      assert.equal(ip.isPrivate('127.0.1'), true);
+      assert.equal(ip.isPublic('127.0.1'), false);
+      assert.equal(ip.isLoopback('127.0.1'), true);
+    });
+
+    it('treats shorthand private IPv4 ranges as private', () => {
+      assert.equal(ip.isPrivate('10.1'), true);
+      assert.equal(ip.isPublic('10.1'), false);
+      assert.equal(ip.isPrivate('192.168.1'), true);
+      assert.equal(ip.isPublic('192.168.1'), false);
+    });
+
+    it('treats octal and hex private IPv4 forms as private', () => {
+      assert.equal(ip.isPrivate('0177.0.0.1'), true);
+      assert.equal(ip.isPublic('0177.0.0.1'), false);
+      assert.equal(ip.isPrivate('012.1.2.3'), true);
+      assert.equal(ip.isPublic('012.1.2.3'), false);
+      assert.equal(ip.isPrivate('0x7f.0.0.1'), true);
+      assert.equal(ip.isPublic('0x7f.0.0.1'), false);
+      assert.equal(ip.isPrivate('0x0a.0.0.1'), true);
+      assert.equal(ip.isPublic('0x0a.0.0.1'), false);
+    });
+
+    it('treats IPv6 loopback variants as private', () => {
+      assert.equal(ip.isPrivate('::1'), true);
+      assert.equal(ip.isPublic('::1'), false);
+      assert.equal(ip.isLoopback('::1'), true);
+      assert.equal(ip.isPrivate('0:0:0:0:0:0:0:1'), true);
+      assert.equal(ip.isPublic('0:0:0:0:0:0:0:1'), false);
+      assert.equal(ip.isLoopback('0:0:0:0:0:0:0:1'), true);
+      assert.equal(ip.isPrivate('::'), true);
+      assert.equal(ip.isPublic('::'), false);
+    });
+
+    it('treats IPv6-mapped IPv4 private addresses as private', () => {
+      assert.equal(ip.isPrivate('::ffff:127.0.0.1'), true);
+      assert.equal(ip.isPublic('::ffff:127.0.0.1'), false);
+      assert.equal(ip.isPrivate('::ffff:7f00:1'), true);
+      assert.equal(ip.isPublic('::ffff:7f00:1'), false);
+      assert.equal(ip.isPrivate('::ffff:10.0.0.1'), true);
+      assert.equal(ip.isPublic('::ffff:10.0.0.1'), false);
+      assert.equal(ip.isPrivate('::ffff:192.168.1.1'), true);
+      assert.equal(ip.isPublic('::ffff:192.168.1.1'), false);
+    });
+
+    it('keeps public addresses classified as public', () => {
+      assert.equal(ip.isPrivate('8.8.8.8'), false);
+      assert.equal(ip.isPublic('8.8.8.8'), true);
+      assert.equal(ip.isPrivate('::ffff:8.8.8.8'), false);
+      assert.equal(ip.isPublic('::ffff:8.8.8.8'), true);
+    });
+
+    it('throws on invalid private-address inputs', () => {
+      assert.throws(() => ip.isPrivate('invalid'), /invalid/i);
+      assert.throws(() => ip.isPrivate('256.0.0.1'), /invalid/i);
+    });
   });
 });
